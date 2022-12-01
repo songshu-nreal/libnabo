@@ -84,10 +84,14 @@ else ()
 endif ()
 
 # Boost required for any and cstdint on MSVC < 2010
-find_package(Boost COMPONENTS REQUIRED)
-if(MSVC AND (MSVC_VERSION LESS 1600))
-	add_definitions(-DBOOST_STDINT)
-endif(MSVC AND (MSVC_VERSION LESS 1600))
+if(ANDROID_NREAL)
+	find_package(boost_catkin)
+else()
+	find_package(Boost COMPONENTS REQUIRED)
+	if(MSVC AND (MSVC_VERSION LESS 1600))
+		add_definitions(-DBOOST_STDINT)
+	endif(MSVC AND (MSVC_VERSION LESS 1600))
+endif()
 
 # openmp
 set(USE_OPEN_MP FALSE CACHE BOOL "Set to TRUE to use OpenMP")
@@ -101,17 +105,6 @@ if (USE_OPEN_MP)
 		endif(CMAKE_COMPILER_IS_GNUCC)
 	endif(OPENMP_FOUND)
 endif (USE_OPEN_MP)
-
-# eigen 2 or 3
-find_path(EIGEN_INCLUDE_DIR Eigen/Core
-	/usr/local/include/eigen3
-	/usr/local/include/eigen2
-	/usr/local/include/eigen
-	/usr/include/eigen3
-	/usr/include/eigen2
-	/usr/include/eigen
-	/opt/local/include/eigen3
-)
 
 # optionally, opencl
 # OpenCL disabled as its code is not up-to-date with API
@@ -143,7 +136,13 @@ else (USE_OPEN_CL)
 endif (USE_OPEN_CL)
 
 # include all libs so far
-include_directories(${CMAKE_SOURCE_DIR} ${EIGEN_INCLUDE_DIR} ${Boost_INCLUDE_DIRS})
+find_package(eigen_catkin)
+include_directories(${CMAKE_SOURCE_DIR} ${eigen_catkin_INCLUDE_DIRS})
+if(ANDROID_NREAL)
+	include_directories(${boost_catkin_INCLUDE_DIRS})
+else()
+	include_directories(${Boost_INCLUDE_DIRS})
+endif()
 
 # main nabo lib
 set(NABO_SRC
@@ -163,20 +162,22 @@ else (SHARED_LIBS)
 endif (SHARED_LIBS)
 set_target_properties(${LIB_NAME} PROPERTIES VERSION "${PROJECT_VERSION}" SOVERSION 1)
 
-# create doc before installing
-set(DOC_INSTALL_TARGET "share/doc/${PROJECT_NAME}/api" CACHE STRING "Target where to install doxygen documentation")
 install(FILES nabo/nabo.h DESTINATION include/nabo)
 install(FILES nabo/third_party/any.hpp DESTINATION include/nabo/third_party)
-install(FILES README.md DESTINATION share/doc/${PROJECT_NAME})
-if (DOXYGEN_FOUND)
-	install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc/html DESTINATION ${DOC_INSTALL_TARGET})
-endif (DOXYGEN_FOUND)
 
-enable_testing()
+if(NOT ANDROID_NREAL)
+	# create doc before installing
+	set(DOC_INSTALL_TARGET "share/doc/${PROJECT_NAME}/api" CACHE STRING "Target where to install doxygen documentation")
+	install(FILES README.md DESTINATION share/doc/${PROJECT_NAME})
+	if (DOXYGEN_FOUND)
+		install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc/html DESTINATION ${DOC_INSTALL_TARGET})
+	endif()
 
-add_subdirectory(examples)
-add_subdirectory(tests)
-add_subdirectory(python)
+	enable_testing()
+	add_subdirectory(examples)
+	add_subdirectory(tests)
+	add_subdirectory(python)
+endif()
 
 # Install catkin package.xml
 install(FILES package.xml DESTINATION share/libnabo)
